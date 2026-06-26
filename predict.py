@@ -50,10 +50,43 @@ def get_device():
     return torch.device("cpu")
 
 
+def _center_by_mass(array: np.ndarray) -> np.ndarray:
+    """根据笔画重心把数字移动到 28x28 画布中心。"""
+    total = float(array.sum())
+    if total <= 0:
+        return array
+
+    y_indices, x_indices = np.indices(array.shape)
+    center_y = float((y_indices * array).sum() / total)
+    center_x = float((x_indices * array).sum() / total)
+    shift_y = int(round(array.shape[0] / 2 - center_y))
+    shift_x = int(round(array.shape[1] / 2 - center_x))
+
+    shifted = np.zeros_like(array)
+    src_y_start = max(0, -shift_y)
+    src_y_end = min(array.shape[0], array.shape[0] - shift_y)
+    src_x_start = max(0, -shift_x)
+    src_x_end = min(array.shape[1], array.shape[1] - shift_x)
+
+    dst_y_start = max(0, shift_y)
+    dst_y_end = dst_y_start + (src_y_end - src_y_start)
+    dst_x_start = max(0, shift_x)
+    dst_x_end = dst_x_start + (src_x_end - src_x_start)
+
+    shifted[dst_y_start:dst_y_end, dst_x_start:dst_x_end] = array[
+        src_y_start:src_y_end,
+        src_x_start:src_x_end,
+    ]
+    return shifted
+
+
 def prepare_mnist_image(image_or_path):
     """
     将用户上传或指定的图片转换成 MNIST 风格的 28x28 灰度图。
-    常见手写图片是白底黑字，而 MNIST 是黑底白字，因此这里会自动判断并反色。
+    处理流程：
+    1. 自动判断白底黑字或黑底白字；
+    2. 裁剪有效笔画区域，去掉大面积空白；
+    3. 按比例缩放到约 20x20，再居中放入 28x28 画布。
     """
     if isinstance(image_or_path, (str, Path)):
         image = Image.open(image_or_path)
@@ -64,12 +97,61 @@ def prepare_mnist_image(image_or_path):
     image = ImageOps.autocontrast(image)
 
     array = np.asarray(image).astype(np.float32) / 255.0
-    # 如果背景整体偏亮，说明大概率是白底黑字，需要反色成黑底白字。
-    if array.mean() > 0.5:
-        array = 1.0 - array
+    if array.size == 0:
+        raise ValueError("图片内容为空")
 
-    image = Image.fromarray((array * 255).astype(np.uint8))
-    return image.resize((28, 28), Image.Resampling.LANCZOS)
+    # 用图片边缘估计背景颜色，比直接看整图平均值更适合有大面积留白的照片。
+    border_pixels = np.concatenate(
+        [
+            array[0, :],
+            array[-1, :],
+            array[:, 0],
+            array[:, -1],
+        ]
+    )
+    background_value = float(np.median(border_pixels))
+
+    # MNIST 的输入习惯是黑底白字，所以这里统一把“数字笔画”变成高亮前景。
+    if background_value > 0.5:
+        foreground = 1.0 - array
+    else:
+        foreground = array
+
+    foreground = np.clip(foreground, 0.0, 1.0)
+    threshold = max(0.15, float(foreground.max()) * 0.25)
+    mask = foreground > threshold
+
+    # 如果用户上传的是几乎空白的图片，直接给出明确错误，而不是输出随机结果。
+    if not mask.any():
+        raise ValueError("未检测到明显的数字笔画")
+
+    ys, xs = np.where(mask)
+    top = max(int(ys.min()) - 2, 0)
+    bottom = min(int(ys.max()) + 3, foreground.shape[0])
+    left = max(int(xs.min()) - 2, 0)
+    right = min(int(xs.max()) + 3, foreground.shape[1])
+    digit = foreground[top:bottom, left:right]
+
+    digit_height, digit_width = digit.shape
+    if digit_height <= 0 or digit_width <= 0:
+        raise ValueError("数字区域裁剪失败")
+
+    # MNIST 中数字通常不会占满 28x28，缩放到 20 像素左右并留出边距更稳定。
+    scale = 20.0 / max(digit_width, digit_height)
+    new_width = max(1, int(round(digit_width * scale)))
+    new_height = max(1, int(round(digit_height * scale)))
+
+    digit_image = Image.fromarray((digit * 255).astype(np.uint8))
+    digit_image = digit_image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+    digit_array = np.asarray(digit_image).astype(np.float32) / 255.0
+
+    canvas = np.zeros((28, 28), dtype=np.float32)
+    paste_top = (28 - new_height) // 2
+    paste_left = (28 - new_width) // 2
+    canvas[paste_top:paste_top + new_height, paste_left:paste_left + new_width] = digit_array
+    canvas = _center_by_mass(canvas)
+
+    return Image.fromarray((np.clip(canvas, 0.0, 1.0) * 255).astype(np.uint8))
 
 
 def preprocess_image(image_or_path):

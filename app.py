@@ -79,7 +79,7 @@ if not MODEL_PATH.exists():
 uploaded_file = st.file_uploader(
     "上传手写数字图片",
     type=["png", "jpg", "jpeg", "bmp"],
-    help="建议上传白底黑字或黑底白字、只包含单个数字的图片。",
+    help="建议上传清晰、只包含单个数字的图片；系统会自动裁剪、居中并转成 28×28 灰度图。",
 )
 
 if uploaded_file is None:
@@ -106,7 +106,7 @@ with processed_col:
     st.subheader("预处理结果")
     st.image(
         preprocessed_image.resize((180, 180), Image.Resampling.NEAREST),
-        caption="28×28 灰度图，页面中已放大显示",
+        caption="裁剪并居中后的 28×28 灰度图，页面中已放大显示",
         use_container_width=False,
     )
 
@@ -120,6 +120,9 @@ with left_col:
 with right_col:
     st.subheader("最高置信度")
     st.metric("Top-1 概率", f"{confidence * 100:.2f}%")
+
+if confidence < 0.70:
+    st.warning("当前置信度偏低，建议上传背景更干净、数字更居中、笔画更清晰的图片。")
 
 st.subheader("10 个数字类别的概率分布")
 probability_df = pd.DataFrame(
