@@ -1,0 +1,16 @@
+模型权重文件说明
+
+文件名：models/mnist_cnn.pth
+用途：CNN 手写数字识别模型的完整 PyTorch 权重文件。
+格式：torch.save 保存的 checkpoint 字典。
+包含内容：
+- model_state_dict：模型参数权重
+- best_accuracy：训练时记录的最佳测试准确率
+- class_names：数字类别 0 到 9
+
+当前权重信息：
+- 文件大小：1690601 bytes
+- 测试集最佳准确率：0.9911
+- SHA256：21eab7b6f38a25dc4cb9fbe080e9f6130ff51f42c5db52e0163eb31ed46c44f7
+
+说明：该文件已随提交包一起提供，运行 Streamlit 页面前无需重新训练；如果希望重新训练，可执行 python train.py --epochs 3 覆盖该权重。
