@@ -1,7 +1,32 @@
 import os
+from pathlib import Path
 from typing import Sequence
 
 import requests
+
+
+ROOT_DIR = Path(__file__).resolve().parents[1]
+
+
+def _load_local_env():
+    """读取本地环境变量文件，避免为了 API Key 额外引入 python-dotenv 依赖。"""
+    for env_path in (ROOT_DIR / ".env.local", ROOT_DIR / ".env"):
+        if not env_path.exists():
+            continue
+
+        for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+
+            key, value = line.split("=", 1)
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+            if key and key not in os.environ:
+                os.environ[key] = value
+
+
+_load_local_env()
 
 
 def _format_probabilities(probabilities: Sequence[float]) -> str:
@@ -90,6 +115,8 @@ def _call_llm_api(predicted_digit: int, confidence: float, probabilities: Sequen
         headers={
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
+            "HTTP-Referer": os.getenv("LLM_HTTP_REFERER", ""),
+            "X-Title": os.getenv("LLM_APP_TITLE", "mnist-ai-explain"),
         },
         json={
             "model": model_name,

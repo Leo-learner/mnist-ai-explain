@@ -9,6 +9,7 @@ venv/
 env/
 .env
 .env.*
+!.env.example
 
 # MNIST 数据集会由 train.py 自动下载，不上传到 GitHub
 data/*

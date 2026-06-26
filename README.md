@@ -161,22 +161,44 @@ streamlit run app.py
 
 如果不配置 API Key，系统会自动使用本地模板解释，适合离线演示。
 
-如需调用在线大模型，可设置环境变量：
+如需调用在线大模型，可以使用本地 `.env.local` 文件配置。项目会自动读取 `.env.local`，不需要额外安装依赖。
+
+### OpenRouter + Kimi K2.6 推荐配置
+
+复制 `.env.example` 为 `.env.local`，并把 `API_KEY` 改成自己的真实 OpenRouter Key：
+
+```bash
+cp .env.example .env.local
+```
+
+`.env.local` 内容示例：
+
+```text
+API_KEY=你的OpenRouter_API_KEY
+LLM_API_BASE=https://openrouter.ai/api/v1
+LLM_MODEL=moonshotai/kimi-k2.6
+LLM_HTTP_REFERER=https://github.com/Leo-learner/mnist-ai-explain
+LLM_APP_TITLE=mnist-ai-explain
+```
+
+`.env.local` 已被 `.gitignore` 排除，不会上传到 GitHub。
+
+也可以直接设置环境变量：
 
 ### macOS / Linux
 
 ```bash
 export API_KEY="你的API_KEY"
-export LLM_MODEL="gpt-4o-mini"
-export LLM_API_BASE="https://api.openai.com/v1"
+export LLM_MODEL="moonshotai/kimi-k2.6"
+export LLM_API_BASE="https://openrouter.ai/api/v1"
 ```
 
 ### Windows
 
 ```bat
 set API_KEY=你的API_KEY
-set LLM_MODEL=gpt-4o-mini
-set LLM_API_BASE=https://api.openai.com/v1
+set LLM_MODEL=moonshotai/kimi-k2.6
+set LLM_API_BASE=https://openrouter.ai/api/v1
 ```
 
 说明：`LLM_API_BASE` 使用 OpenAI 兼容接口格式，默认会请求 `/chat/completions`。
